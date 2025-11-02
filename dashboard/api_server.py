@@ -365,6 +365,65 @@ async def get_clarifying_questions(proposition_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+@app.get("/api/propositions/{proposition_id}/analysis", response_model=ClarificationAnalysisResponse)
+async def get_clarification_analysis(proposition_id: int):
+    """Get clarification analysis for a specific proposition"""
+    if not Session:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    
+    try:
+        async with Session() as session:
+            # Check if proposition exists
+            proposition = await session.get(Proposition, proposition_id)
+            if not proposition:
+                raise HTTPException(status_code=404, detail="Proposition not found")
+            
+            # Get clarification analysis
+            analysis_query = select(ClarificationAnalysis).where(
+                ClarificationAnalysis.proposition_id == proposition_id
+            )
+            
+            analysis_result = await session.execute(analysis_query)
+            analysis = analysis_result.scalar_one_or_none()
+            
+            if not analysis:
+                # No analysis exists yet
+                return ClarificationAnalysisResponse(
+                    has_analysis=False,
+                    needs_clarification=None,
+                    clarification_score=None,
+                    triggered_factors=None,
+                    reasoning=None,
+                    factor_scores=None,
+                    created_at=None
+                )
+            
+            # Parse triggered factors
+            triggered_factors = []
+            if analysis.triggered_factors:
+                if isinstance(analysis.triggered_factors, dict):
+                    triggered_factors = analysis.triggered_factors.get('factors', [])
+                elif isinstance(analysis.triggered_factors, list):
+                    triggered_factors = analysis.triggered_factors
+            
+            # Get factor scores
+            factor_scores = analysis.get_factor_scores()
+            
+            return ClarificationAnalysisResponse(
+                has_analysis=True,
+                needs_clarification=analysis.needs_clarification,
+                clarification_score=analysis.clarification_score,
+                triggered_factors=triggered_factors,
+                reasoning=analysis.reasoning_log,
+                factor_scores=factor_scores,
+                created_at=analysis.created_at.isoformat() if analysis.created_at else None
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

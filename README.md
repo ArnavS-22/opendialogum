@@ -5,4 +5,3 @@ source venv/bin/activate && python -m gum.cli -u "Arnav Sharma"
 
 cd dashboard && npm run dev
 
-is it actually hooked to our continious proposition data? will the workflows showup in the frontend? can you please as a test, repeat as a test, DO NOT HARDCODE THIS, fetch the latest proposito

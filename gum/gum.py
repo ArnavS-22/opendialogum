@@ -35,6 +35,10 @@ from gum.prompts.gum import AUDIT_PROMPT, PROPOSE_PROMPT, REVISE_PROMPT, SIMILAR
 from .batcher import ObservationBatcher
 from .config import GumConfig
 from .clarification import ClarificationDetector
+try:
+    from .clarification.question_engine import ClarifyingQuestionEngine
+except ImportError:
+    ClarifyingQuestionEngine = None
 
 class gum:
     """A class for managing general user models.
@@ -556,6 +560,7 @@ class gum:
         detector = ClarificationDetector(self.client, self.config)
         
         # Analyze each proposition
+        flagged_propositions = []
         for prop in propositions:
             try:
                 analysis = await detector.analyze(prop, session)
@@ -565,6 +570,7 @@ class gum:
                         f"Proposition {prop.id} flagged for clarification "
                         f"(score={analysis.clarification_score:.2f})"
                     )
+                    flagged_propositions.append(prop)
                     
                     # In shadow mode, just log; otherwise could enqueue for Gates
                     if not self.config.clarification.shadow_mode:
@@ -581,6 +587,23 @@ class gum:
                     f"Error analyzing proposition {prop.id} for clarification: {e}"
                 )
                 # Continue with other propositions even if one fails
+        
+        # Auto-generate questions if enabled
+        if (self.config.clarification.auto_generate_questions and 
+            flagged_propositions and 
+            ClarifyingQuestionEngine is not None):
+            self.logger.info(f"Auto-generating clarifying questions for {len(flagged_propositions)} flagged propositions")
+            try:
+                question_engine = ClarifyingQuestionEngine(
+                    openai_client=self.client,
+                    config=self.config,
+                    input_source="db",
+                    db_session=session
+                )
+                summary = await question_engine.run()
+                self.logger.info(f"Generated {summary['successful']} clarifying questions")
+            except Exception as e:
+                self.logger.error(f"Error auto-generating clarifying questions: {e}")
 
     async def _handle_audit(self, obs: Observation) -> bool:
         if not self.audit_enabled:

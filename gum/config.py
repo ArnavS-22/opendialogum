@@ -48,8 +48,9 @@ class ClarificationConfig:
     """Configuration for clarification detection system."""
     enabled: bool = True
     shadow_mode: bool = True  # Collect data but don't route to Gates yet
+    auto_generate_questions: bool = True  # Automatically generate questions after detection
     threshold: float = 0.6  # Aggregate score threshold for flagging
-    model: str = "gpt-4-turbo"  # LLM model to use
+    model: str = "gpt-4o"  # LLM model to use (changed to gpt-4o for JSON support)
     temperature: float = 0.1  # Low temperature for consistency
 
 

@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import logging
 import shutil  
-from gum import gum
+from gum.gum import gum
 from gum.observers import Screen
 
 class QueryAction(argparse.Action):

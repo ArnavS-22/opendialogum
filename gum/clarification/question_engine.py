@@ -359,6 +359,19 @@ class ClarifyingQuestionEngine:
                     skipped_count += 1
                     continue
                 
+                # Check for existing question to avoid duplicates
+                existing_query = select(ClarifyingQuestion).where(
+                    ClarifyingQuestion.proposition_id == prop_id,
+                    ClarifyingQuestion.factor_id == factor_id
+                )
+                existing_result = await self.db_session.execute(existing_query)
+                existing = existing_result.scalar_one_or_none()
+                
+                if existing:
+                    logger.debug(f"Question already exists for prop {prop_id}, factor {factor} - skipping")
+                    skipped_count += 1
+                    continue
+                
                 # Get analysis ID if available
                 analysis_id = None
                 if self.input_source == "db":
@@ -396,13 +409,9 @@ class ClarifyingQuestionEngine:
                 skipped_count += 1
                 continue
         
-        # Commit all at once
-        try:
-            await self.db_session.commit()
-            logger.info(f"Successfully saved {saved_count} questions to database, skipped {skipped_count}")
-        except Exception as e:
-            logger.error(f"Error committing questions to database: {e}")
-            await self.db_session.rollback()
+        # Note: Don't commit here - let the caller handle transaction management
+        # This allows the question generation to be part of a larger transaction
+        logger.info(f"Added {saved_count} questions to session, skipped {skipped_count}")
 
 
 async def run_engine_simple(

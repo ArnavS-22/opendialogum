@@ -23,6 +23,16 @@ interface ClarifyingQuestionsResponse {
   total_count: number;
 }
 
+interface ClarificationAnalysis {
+  has_analysis: boolean;
+  needs_clarification: boolean | null;
+  clarification_score: number | null;
+  triggered_factors: string[] | null;
+  reasoning: string | null;
+  factor_scores: Record<string, number> | null;
+  created_at: string | null;
+}
+
 interface Proposition {
   id: number;
   text: string;
@@ -35,6 +45,7 @@ interface Proposition {
   version: number;
   observation_count: number;
   clarifying_questions?: ClarifyingQuestion[];  // Questions embedded
+  clarification_analysis?: ClarificationAnalysis;  // Analysis embedded
 }
 
 interface PropositionsResponse {
@@ -58,32 +69,53 @@ export default function PropositionsPage() {
 
     const silentRefresh = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/propositions?limit=50', {
+        const response = await fetch('http://localhost:8000/api/propositions?limit=200', {
           cache: 'no-store',
         });
         if (!response.ok) return;
         const data: PropositionsResponse = await response.json();
         
-        // Fetch questions for each proposition
-        const propositionsWithQuestions = await Promise.all(
+        // Fetch questions and analysis for each proposition
+        const propositionsWithData = await Promise.all(
           data.propositions.map(async (prop) => {
+            const questions: ClarifyingQuestion[] = [];
+            let analysis: ClarificationAnalysis | undefined = undefined;
+            
+            // Fetch questions
             try {
               const qResponse = await fetch(`http://localhost:8000/api/propositions/${prop.id}/questions`, {
                 cache: 'no-store',
               });
               if (qResponse.ok) {
                 const qData: ClarifyingQuestionsResponse = await qResponse.json();
-                return { ...prop, clarifying_questions: qData.questions };
+                questions.push(...qData.questions);
               }
             } catch {
               // Swallow errors
             }
-            return { ...prop, clarifying_questions: [] };
+            
+            // Fetch analysis
+            try {
+              const aResponse = await fetch(`http://localhost:8000/api/propositions/${prop.id}/analysis`, {
+                cache: 'no-store',
+              });
+              if (aResponse.ok) {
+                analysis = await aResponse.json();
+              }
+            } catch {
+              // Swallow errors
+            }
+            
+            return { 
+              ...prop, 
+              clarifying_questions: questions,
+              clarification_analysis: analysis
+            };
           })
         );
         
         if (!isCancelled) {
-          setPropositions(propositionsWithQuestions);
+          setPropositions(propositionsWithData);
           setTotalCount(data.total_count);
         }
       } catch {
@@ -101,7 +133,7 @@ export default function PropositionsPage() {
   const fetchPropositions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/propositions?limit=50', {
+      const response = await fetch('http://localhost:8000/api/propositions?limit=200', {
         cache: 'no-store',
       });
       
@@ -111,25 +143,46 @@ export default function PropositionsPage() {
       
       const data: PropositionsResponse = await response.json();
       
-      // Fetch questions for each proposition in parallel
-      const propositionsWithQuestions = await Promise.all(
+      // Fetch questions and analysis for each proposition in parallel
+      const propositionsWithData = await Promise.all(
         data.propositions.map(async (prop) => {
+          const questions: ClarifyingQuestion[] = [];
+          let analysis: ClarificationAnalysis | undefined = undefined;
+          
+          // Fetch questions
           try {
             const qResponse = await fetch(`http://localhost:8000/api/propositions/${prop.id}/questions`, {
               cache: 'no-store',
             });
             if (qResponse.ok) {
               const qData: ClarifyingQuestionsResponse = await qResponse.json();
-              return { ...prop, clarifying_questions: qData.questions };
+              questions.push(...qData.questions);
             }
           } catch {
-            // Swallow errors for individual question fetches
+            // Swallow errors
           }
-          return { ...prop, clarifying_questions: [] };
+          
+          // Fetch analysis
+          try {
+            const aResponse = await fetch(`http://localhost:8000/api/propositions/${prop.id}/analysis`, {
+              cache: 'no-store',
+            });
+            if (aResponse.ok) {
+              analysis = await aResponse.json();
+            }
+          } catch {
+            // Swallow errors
+          }
+          
+          return { 
+            ...prop, 
+            clarifying_questions: questions,
+            clarification_analysis: analysis
+          };
         })
       );
       
-      setPropositions(propositionsWithQuestions);
+      setPropositions(propositionsWithData);
       setTotalCount(data.total_count);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch propositions');
@@ -208,7 +261,9 @@ export default function PropositionsPage() {
           <div className="relative rounded-xl bg-white/10 p-4 backdrop-blur-sm">
             <BorderTrail size={40} />
             <div className="text-2xl font-bold text-blue-400">
-              {Math.round(propositions.reduce((acc, p) => acc + (p.confidence || 0), 0) / propositions.length * 10) / 10}
+              {propositions.length > 0 
+                ? Math.round(propositions.reduce((acc, p) => acc + (p.confidence || 0), 0) / propositions.length * 10) / 10
+                : '—'}
             </div>
             <div className="text-sm text-gray-300">Avg Conf</div>
           </div>
@@ -306,6 +361,72 @@ export default function PropositionsPage() {
                           {new Date(proposition.created_at).toLocaleString()}
                         </div>
                       </div>
+
+                      {/* Clarification Analysis Display */}
+                      {proposition.clarification_analysis?.has_analysis && (
+                        <div className="mt-4 pt-4 border-t border-white/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-white">
+                              Clarification Analysis
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                proposition.clarification_analysis.needs_clarification 
+                                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/50' 
+                                  : 'bg-green-500/20 text-green-300 border border-green-500/50'
+                              }`}>
+                                {proposition.clarification_analysis.needs_clarification ? 'Flagged' : 'Not Flagged'}
+                              </span>
+                              <span className="text-sm text-gray-300">
+                                Score: {(proposition.clarification_analysis.clarification_score! * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Triggered Factors */}
+                          {proposition.clarification_analysis.triggered_factors && 
+                           proposition.clarification_analysis.triggered_factors.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-400 mb-2">Triggered Factors:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {proposition.clarification_analysis.triggered_factors.map((factor) => (
+                                  <span 
+                                    key={factor}
+                                    className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/50"
+                                  >
+                                    {factor}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Factor Scores - Top 5 */}
+                          {proposition.clarification_analysis.factor_scores && (
+                            <div>
+                              <p className="text-xs text-gray-400 mb-2">Top Factor Scores:</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {Object.entries(proposition.clarification_analysis.factor_scores)
+                                  .sort(([, a], [, b]) => b - a)
+                                  .slice(0, 5)
+                                  .map(([factor, score]) => (
+                                    <div 
+                                      key={factor}
+                                      className="flex items-center justify-between px-2 py-1 rounded bg-white/5"
+                                    >
+                                      <span className="text-xs text-gray-300">{factor}</span>
+                                      <span className={`text-xs font-medium ${
+                                        score >= 0.6 ? 'text-red-400' : score >= 0.4 ? 'text-yellow-400' : 'text-gray-400'
+                                      }`}>
+                                        {(score * 100).toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Clarifying Questions Display */}
                       {proposition.clarifying_questions && proposition.clarifying_questions.length > 0 && (

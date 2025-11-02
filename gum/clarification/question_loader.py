@@ -125,9 +125,14 @@ async def _load_from_db(session: AsyncSession) -> List[Dict[str, Any]]:
     """
     logger.info("Loading flagged propositions from database")
     
-    # Query ClarificationAnalysis for flagged propositions
-    query = select(ClarificationAnalysis).where(
-        ClarificationAnalysis.needs_clarification == True
+    # Import here to avoid circular imports
+    from sqlalchemy.orm import selectinload
+    
+    # Query ClarificationAnalysis for flagged propositions with eager loading
+    query = (
+        select(ClarificationAnalysis)
+        .options(selectinload(ClarificationAnalysis.proposition))
+        .where(ClarificationAnalysis.needs_clarification == True)
     )
     
     result = await session.execute(query)
@@ -138,12 +143,21 @@ async def _load_from_db(session: AsyncSession) -> List[Dict[str, Any]]:
         # Get triggered factors
         triggered_factors = []
         if analysis.triggered_factors:
-            if isinstance(analysis.triggered_factors, list):
+            if isinstance(analysis.triggered_factors, dict):
+                # Handle dict format: {'factors': ['factor1', 'factor2']}
+                triggered_factors = analysis.triggered_factors.get('factors', [])
+            elif isinstance(analysis.triggered_factors, list):
                 triggered_factors = analysis.triggered_factors
             elif isinstance(analysis.triggered_factors, str):
                 # Parse if stored as string
                 try:
-                    triggered_factors = json.loads(analysis.triggered_factors)
+                    parsed = json.loads(analysis.triggered_factors)
+                    if isinstance(parsed, dict):
+                        triggered_factors = parsed.get('factors', [])
+                    elif isinstance(parsed, list):
+                        triggered_factors = parsed
+                    else:
+                        triggered_factors = [parsed]
                 except json.JSONDecodeError:
                     triggered_factors = [analysis.triggered_factors]
         
