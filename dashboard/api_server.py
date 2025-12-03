@@ -98,13 +98,17 @@ async def init_database():
     """Initialize database connection"""
     global engine, Session
     
-    if not os.path.exists(db_path):
-        print(f"Database not found at {db_path}")
-        print("Please run GUM first to create the database")
-        return False
+    # Ensure directory exists
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     
     try:
-        engine, Session = await init_db(db_path)
+        # init_db will create the database if it doesn't exist
+        engine, Session = await init_db(
+            db_path=os.path.basename(db_path),
+            db_directory=db_dir
+        )
         print(f"Connected to database: {db_path}")
         return True
     except Exception as e:
