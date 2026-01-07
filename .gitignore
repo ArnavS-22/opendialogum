@@ -113,4 +113,34 @@ dmypy.json
 .pytype/
 
 # Cython debug symbols
-cython_debug/ 
+cython_debug/
+
+# Security
+.env*
+.secrets
+secrets.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+*.crl
+*.gpg
+*.pgp
+*.ks
+*.keystore
+*.jks
+id_rsa
+id_dsa
+id_ed25519
+known_hosts
+authorized_keys
+config.json
+config.yaml
+*.bak
+*.old
+
+# Test Artifacts
+test_results_*/
+*.jsonl
