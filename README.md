@@ -10,7 +10,6 @@
 
 - **Observation Tracking**: Monitors user interactions across applications.
 - **Proposition Management**: Maintains a database of "propositions" (beliefs about the user).
-- **Mixed-Initiative Interaction**: Decides when to interrupt the user or take autonomous action.
 - **Clarification Detection**: Automatically detects when user intent is ambiguous and generates clarifying questions.
 - **Privacy-First**: All data is stored locally in `~/.cache/gum/gum.db`.
 
