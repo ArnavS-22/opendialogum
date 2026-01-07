@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![CodeQL](https://github.com/ArnavS-22/opendialogum/actions/workflows/codeql.yml/badge.svg)
 
-**OpenDialogum** (formerly GUM) is a General User Modeling library designed to enable mixed-initiative interaction and clarification in AI systems. It provides tools for observing user behavior, maintaining propositions about user state, and detecting when clarification is needed.
+**OpenDialogum** (formerly GUM) is a General User Modeling library designed to enable clarification in AI systems. It provides tools for observing user behavior, maintaining propositions about user state, and detecting when clarification is needed.
 
 ## Features
 
