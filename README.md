@@ -11,7 +11,10 @@
 - **Observation Tracking**: Monitors user interactions across applications.
 - **Proposition Management**: Maintains a database of "propositions" (beliefs about the user).
 - **Clarification Detection**: Automatically detects when user intent is ambiguous and generates clarifying questions.
-- **Privacy-First**: All data is stored locally in `~/.cache/gum/gum.db`.
+- **Privacy-First**: a strict local-storage policy. All data is stored locally in `~/.cache/gum/gum.db`.
+> [!IMPORTANT]
+> **Security Notice**: Data is currently stored in a standard SQLite database. While this ensures data stays on your machine, it is not encrypted at rest. Users are responsible for securing their local environment (e.g., using Full Disk Encryption).
+
 
 ## Installation
 

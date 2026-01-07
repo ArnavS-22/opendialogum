@@ -23,7 +23,7 @@ async def main():
         print('❌ No API key found in environment')
         return
     
-    print(f'✅ API Key found: {api_key[:10]}...')
+    print(f'✅ API Key found in environment')
     
     # DB setup
     db_path = os.path.expanduser('~/.cache/gum/gum.db')
